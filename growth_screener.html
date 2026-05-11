@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Growth Stock Screener</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --muted: #888;
+    --faint: #444;
+    --green: #4ade80;
+    --green-bg: rgba(74,222,128,0.1);
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,0.1);
+    --amber: #fbbf24;
+    --amber-bg: rgba(251,191,36,0.1);
+    --blue: #60a5fa;
+    --blue-bg: rgba(96,165,250,0.08);
+    --accent: #e2e2e2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .shell {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .masthead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .masthead-left h1 {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .masthead-left p {
+    font-size: 12px;
+    color: var(--faint);
+  }
+
+  .api-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--faint);
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 32px;
+    align-items: center;
+  }
+
+  .ticker-input {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    width: 160px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .ticker-input:focus { border-color: rgba(255,255,255,0.3); }
+  .ticker-input::placeholder { color: var(--faint); text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 400; }
+
+  .run-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--accent);
+    color: #0a0a0a;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.02em;
+  }
+
+  .run-btn:hover { opacity: 0.88; }
+  .run-btn:active { transform: scale(0.97); }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .status-line {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-left: 4px;
+  }
+
+  #results { display: none; }
+
+  .company-header {
+    border-bottom: 0.5px solid var(--border);
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .company-header .ticker {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+
+  .company-header .name {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .company-header .exchange {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--faint);
+    margin-top: 4px;
+  }
+
+  .price-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    align-items: baseline;
+  }
+
+  .price-main {
+    font-family: 'DM Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+  }
+
+  .price-change {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .price-change.up { color: var(--green); background: var(--green-bg); }
+  .price-change.down { color: var(--red); background: var(--red-bg); }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+
+  .stat-card .label {
+    font-size: 10px;
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 6px;
+  }
+
+  .stat-card .value {
+    font-family: 'DM Mono', monospace;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .section-header {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-header::after {
+    content: '';
+    flex: 1;
+    height: 0.5px;
+    background: var(--border);
+  }
+
+  .col-heads {
+    display: flex;
+    gap: 8px;
+    padding: 0 0 6px;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  .col-heads span {
+    font-size: 10px;
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .ch-name { flex: 1; }
+  .ch-ideal { flex: 0 0 120px; text-align: center; }
+  .ch-actual { flex: 0 0 90px; text-align: right; }
+  .ch-status { flex: 0 0 80px; text-align: right; }
+
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 0.5px solid var(--border);
+    animation: fadeIn 0.3s ease both;
+  }
+
+  .check-row:last-child { border-bottom: none; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .cr-name { font-size: 13px; color: #aaa; flex: 1; min-width: 0; }
+  .cr-ideal { font-size: 11px; color: var(--faint); font-family: 'DM Mono', monospace; flex: 0 0 120px; text-align: center; }
+  .cr-actual { font-size: 13px; font-weight: 500; color: var(--text); font-family: 'DM Mono', monospace; flex: 0 0 90px; text-align: right; }
+  .cr-status { flex: 0 0 80px; text-align: right; }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  .b-pass { background: var(--green-bg); color: var(--green); }
+  .b-fail { background: var(--red-bg); color: var(--red); }
+  .b-warn { background: var(--amber-bg); color: var(--amber); }
+  .b-na { background: rgba(255,255,255,0.05); color: var(--faint); }
+
+  .footnote {
+    font-size: 11px;
+    color: var(--faint);
+    line-height: 1.7;
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: 6px;
+    border-left: 2px solid var(--border2);
+  }
+
+  .risk-block {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 28px 0;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+
+  .risk-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 52px;
+    font-weight: 500;
+    line-height: 1;
+    min-width: 80px;
+  }
+
+  .risk-info .risk-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .risk-bar-wrap { flex: 1; min-width: 200px; }
+
+  .risk-scale-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 5px;
+  }
+
+  .risk-track {
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #4ade80 0%, #fbbf24 45%, #f87171 100%);
+    position: relative;
+  }
+
+  .risk-pin {
+    position: absolute;
+    top: -5px;
+    width: 3px;
+    height: 16px;
+    background: #fff;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    transition: left 0.8s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .verdict-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 28px;
+    background: var(--surface);
+    flex-wrap: wrap;
+  }
+
+  .verdict-pill {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  .verdict-text {
+    font-size: 13px;
+    color: var(--muted);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .score-tally {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--faint);
+    margin-left: auto;
+  }
+
+  .summary-box {
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+
+  .summary-box .s-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  .summary-box p {
+    font-size: 13px;
+    color: #aaa;
+    line-height: 1.75;
+  }
+
+  .summary-box p + p { margin-top: 10px; }
+  .summary-box .hl { color: var(--text); font-weight: 500; }
+
+  .error-msg {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--red);
+    background: var(--red-bg);
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  .loading-state {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 32px 0;
+  }
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border2);
+    border-top-color: var(--text);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-state span {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .pass-count { color: var(--green); }
+  .fail-count { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="masthead">
+    <div class="masthead-left">
+      <h1>Growth Stock Screener</h1>
+      <p>Peter Lynch / Buffett / O'Neil framework &mdash; live data</p>
+    </div>
+    <div class="api-badge">Alpha Vantage &bull; Live</div>
+  </div>
+
+  <div class="search-bar">
+    <input class="ticker-input" type="text" id="tickerInput" placeholder="Enter ticker" maxlength="6" />
+    <button class="run-btn" id="runBtn" onclick="runScreen()">Analyze</button>
+    <span class="status-line" id="statusLine"></span>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="loading-state" id="loadingState">
+    <div class="spinner"></div>
+    <span id="loadingText">Fetching data...</span>
+  </div>
+
+  <div id="results">
+
+    <div class="company-header">
+      <div class="ticker" id="hTicker"></div>
+      <div class="name" id="hName"></div>
+      <div class="exchange" id="hExchange"></div>
+      <div class="price-row">
+        <div class="price-main" id="hPrice"></div>
+        <div class="price-change" id="hChange"></div>
+      </div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <div class="verdict-bar" id="verdictBar"></div>
+
+    <div class="section-header">Profitability margins</div>
+    <div class="col-heads">
+      <span class="ch-name">Metric</span>
+      <span class="ch-ideal">Ideal range</span>
+      <span class="ch-actual">Actual</span>
+      <span class="ch-status">Status</span>
+    </div>
+    <div id="marginRows"></div>
+
+    <div class="section-header">Growth</div>
+    <div class="col-heads">
+      <span class="ch-name">Metric</span>
+      <span class="ch-ideal">Ideal range</span>
+      <span class="ch-actual">Actual</span>
+      <span class="ch-status">Status</span>
+    </div>
+    <div id="growthRows"></div>
+
+    <div class="section-header">Valuation</div>
+    <div class="col-heads">
+      <span class="ch-name">Metric</span>
+      <span class="ch-ideal">Ideal range</span>
+      <span class="ch-actual">Actual</span>
+      <span class="ch-status">Status</span>
+    </div>
+    <div id="valuationRows"></div>
+
+    <div class="section-header">Returns</div>
+    <div class="col-heads">
+      <span class="ch-name">Metric</span>
+      <span class="ch-ideal">Ideal range</span>
+      <span class="ch-actual">Actual</span>
+      <span class="ch-status">Status</span>
+    </div>
+    <div id="returnRows"></div>
+
+    <div class="footnote" id="footnote"></div>
+
+    <div class="section-header" style="margin-top:32px;">Risk score</div>
+    <div class="risk-block">
+      <div class="risk-info">
+        <div class="risk-num" id="riskNum">--</div>
+        <div class="risk-label" id="riskLabel">/ 100</div>
+      </div>
+      <div class="risk-bar-wrap">
+        <div class="risk-scale-labels">
+          <span style="color:#4ade80">Low</span>
+          <span style="color:#fbbf24">Moderate</span>
+          <span style="color:#f87171">High</span>
+        </div>
+        <div class="risk-track">
+          <div class="risk-pin" id="riskPin" style="left:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">Analysis</div>
+    <div class="summary-box" id="summaryBox"></div>
+
+  </div>
+</div>
+
+<script>
+const API_KEY = '6B7JE0TZU4R7UDX5';
+
+function pct(v) {
+  if (v === null || v === undefined || isNaN(v)) return null;
+  return parseFloat((v * 100).toFixed(2));
+}
+
+function fmt(v, suffix='', decimals=2) {
+  if (v === null || v === undefined || v === 'None' || v === '-') return 'N/A';
+  const n = parseFloat(v);
+  if (isNaN(n)) return 'N/A';
+  return n.toFixed(decimals) + suffix;
+}
+
+function fmtBig(v) {
+  if (!v || isNaN(parseFloat(v))) return 'N/A';
+  const n = parseFloat(v);
+  if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  return '$' + n.toFixed(0);
+}
+
+function badge(type, label) {
+  const map = { pass: 'b-pass', fail: 'b-fail', warn: 'b-warn', na: 'b-na' };
+  return `<span class="badge ${map[type] || 'b-na'}">${label}</span>`;
+}
+
+function check(val, min, max, label) {
+  if (val === null || val === undefined || isNaN(val)) return { status: 'na', label: 'N/A' };
+  if (max === null) {
+    if (val >= min) return { status: 'pass', label: 'Pass' };
+    return { status: 'fail', label: 'Fail' };
+  }
+  if (val >= min && val <= max) return { status: 'pass', label: 'Pass' };
+  if (val > max) return { status: 'warn', label: 'Above range' };
+  return { status: 'fail', label: 'Below range' };
+}
+
+function makeRow(name, ideal, actual, statusType, statusLabel) {
+  return `<div class="check-row">
+    <span class="cr-name">${name}</span>
+    <span class="cr-ideal">${ideal}</span>
+    <span class="cr-actual">${actual}</span>
+    <span class="cr-status">${badge(statusType, statusLabel)}</span>
+  </div>`;
+}
+
+function statCard(label, value) {
+  return `<div class="stat-card"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+}
+
+async function runScreen() {
+  const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+  if (!ticker) return;
+
+  const btn = document.getElementById('runBtn');
+  const err = document.getElementById('errorMsg');
+  const loading = document.getElementById('loadingState');
+  const results = document.getElementById('results');
+
+  btn.disabled = true;
+  err.style.display = 'none';
+  results.style.display = 'none';
+  loading.style.display = 'flex';
+  document.getElementById('loadingText').textContent = 'Fetching fundamentals...';
+
+  try {
+    const [ovRes, quoteRes, incRes] = await Promise.all([
+      fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${API_KEY}`),
+      fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${API_KEY}`),
+      fetch(`https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol=${ticker}&apikey=${API_KEY}`)
+    ]);
+
+    const ov = await ovRes.json();
+    const quoteData = await quoteRes.json();
+    const incData = await incRes.json();
+
+    if (!ov.Symbol) {
+      throw new Error(`Ticker "${ticker}" not found. Check the symbol and try again.`);
+    }
+
+    document.getElementById('loadingText').textContent = 'Running checklist...';
+
+    const q = quoteData['Global Quote'] || {};
+    const price = parseFloat(q['05. price']) || null;
+    const changeVal = parseFloat(q['09. change']) || 0;
+    const changePct = parseFloat(q['10. change percent']) || 0;
+
+    const annualReports = (incData.annualReports || []);
+    let revGrowth1yr = null;
+    let revGrowth3yr = null;
+    let epsGrowth = null;
+
+    if (annualReports.length >= 2) {
+      const r0 = parseFloat(annualReports[0].totalRevenue);
+      const r1 = parseFloat(annualReports[1].totalRevenue);
+      if (r0 && r1 && r1 > 0) revGrowth1yr = ((r0 - r1) / Math.abs(r1)) * 100;
+    }
+    if (annualReports.length >= 4) {
+      const r0 = parseFloat(annualReports[0].totalRevenue);
+      const r3 = parseFloat(annualReports[3].totalRevenue);
+      if (r0 && r3 && r3 > 0) revGrowth3yr = (Math.pow(r0/r3, 1/3) - 1) * 100;
+    }
+    if (annualReports.length >= 2) {
+      const e0 = parseFloat(annualReports[0].netIncome);
+      const e1 = parseFloat(annualReports[1].netIncome);
+      const shares = parseFloat(ov.SharesOutstanding);
+      if (e0 && e1 && shares && e1 > 0) {
+        epsGrowth = ((e0 - e1) / Math.abs(e1)) * 100;
+      }
+    }
+
+    const grossMargin = parseFloat(ov.GrossProfitTTM) && parseFloat(ov.RevenueTTM)
+      ? (parseFloat(ov.GrossProfitTTM) / parseFloat(ov.RevenueTTM)) * 100
+      : null;
+
+    const operatingMargin = ov.OperatingMarginTTM ? parseFloat(ov.OperatingMarginTTM) * 100 : null;
+    const netMargin = ov.ProfitMargin ? parseFloat(ov.ProfitMargin) * 100 : null;
+    const ebitdaMargin = ov.EBITDAMargin ? parseFloat(ov.EBITDAMargin) * 100 : null;
+
+    const pe = ov.TrailingPE && ov.TrailingPE !== 'None' ? parseFloat(ov.TrailingPE) : null;
+    const fwdPE = ov.ForwardPE && ov.ForwardPE !== 'None' ? parseFloat(ov.ForwardPE) : null;
+    const peg = ov.PEGRatio && ov.PEGRatio !== 'None' ? parseFloat(ov.PEGRatio) : null;
+    const pb = ov.PriceToBookRatio && ov.PriceToBookRatio !== 'None' ? parseFloat(ov.PriceToBookRatio) : null;
+    const ps = ov.PriceToSalesRatioTTM && ov.PriceToSalesRatioTTM !== 'None' ? parseFloat(ov.PriceToSalesRatioTTM) : null;
+    const evEbitda = ov.EVToEBITDA && ov.EVToEBITDA !== 'None' ? parseFloat(ov.EVToEBITDA) : null;
+    const roe = ov.ReturnOnEquityTTM ? parseFloat(ov.ReturnOnEquityTTM) * 100 : null;
+    const roa = ov.ReturnOnAssetsTTM ? parseFloat(ov.ReturnOnAssetsTTM) * 100 : null;
+    const beta = ov.Beta ? parseFloat(ov.Beta) : null;
+    const mktCap = ov.MarketCapitalization ? parseFloat(ov.MarketCapitalization) : null;
+
+    loading.style.display = 'none';
+    results.style.display = 'block';
+
+    document.getElementById('hTicker').textContent = ov.Symbol;
+    document.getElementById('hName').textContent = ov.Name || '';
+    document.getElementById('hExchange').textContent = [ov.Exchange, ov.Sector, ov.Industry].filter(Boolean).join(' · ');
+
+    if (price) {
+      document.getElementById('hPrice').textContent = '$' + price.toFixed(2);
+      const chEl = document.getElementById('hChange');
+      const sign = changeVal >= 0 ? '+' : '';
+      chEl.textContent = `${sign}${changeVal.toFixed(2)} (${sign}${changePct.toFixed(2)}%)`;
+      chEl.className = 'price-change ' + (changeVal >= 0 ? 'up' : 'down');
+    }
+
+    document.getElementById('statsGrid').innerHTML = [
+      statCard('Market cap', fmtBig(mktCap)),
+      statCard('Revenue TTM', fmtBig(ov.RevenueTTM)),
+      statCard('EPS TTM', fmt(ov.EPS, '', 2) !== 'N/A' ? '$' + fmt(ov.EPS, '', 2) : 'N/A'),
+      statCard('Beta', fmt(beta, '', 2)),
+      statCard('52-wk high', ov['52WeekHigh'] ? '$' + parseFloat(ov['52WeekHigh']).toFixed(2) : 'N/A'),
+      statCard('52-wk low', ov['52WeekLow'] ? '$' + parseFloat(ov['52WeekLow']).toFixed(2) : 'N/A'),
+    ].join('');
+
+    let passCount = 0, failCount = 0, naCount = 0;
+
+    function evalRow(name, ideal, val, fmtVal, min, max) {
+      const r = check(val, min, max, name);
+      if (r.status === 'pass') passCount++;
+      else if (r.status === 'fail') failCount++;
+      else naCount++;
+      return makeRow(name, ideal, fmtVal, r.status, r.label);
+    }
+
+    document.getElementById('marginRows').innerHTML = [
+      evalRow('Gross profit margin', '20% – 50%', grossMargin, fmt(grossMargin,'%',1), 20, 50),
+      evalRow('Operating profit margin', '10% – 30%', operatingMargin, fmt(operatingMargin,'%',1), 10, 30),
+      evalRow('Net profit margin', '5% – 20%', netMargin, fmt(netMargin,'%',1), 5, 20),
+      evalRow('EBITDA margin', '20%+', ebitdaMargin, fmt(ebitdaMargin,'%',1), 20, null),
+    ].join('');
+
+    const rev1Check = revGrowth1yr !== null ? check(revGrowth1yr, 20, null) : { status:'na', label:'N/A' };
+    const rev3Check = revGrowth3yr !== null ? check(revGrowth3yr, 20, null) : { status:'na', label:'N/A' };
+    const epsCheck = epsGrowth !== null ? check(epsGrowth, 20, null) : { status:'na', label:'N/A' };
+
+    [rev1Check, rev3Check, epsCheck].forEach(c => {
+      if (c.status === 'pass') passCount++;
+      else if (c.status === 'fail') failCount++;
+      else naCount++;
+    });
+
+    document.getElementById('growthRows').innerHTML = [
+      makeRow('1-year revenue growth', '20%+', revGrowth1yr !== null ? fmt(revGrowth1yr,'%',1) : 'N/A', rev1Check.status, rev1Check.label),
+      makeRow('3-year revenue CAGR', '20%+', revGrowth3yr !== null ? fmt(revGrowth3yr,'%',1) : 'N/A', rev3Check.status, rev3Check.label),
+      makeRow('EPS growth (YoY)', '20%+', epsGrowth !== null ? fmt(epsGrowth,'%',1) : 'N/A', epsCheck.status, epsCheck.label),
+    ].join('');
+
+    document.getElementById('valuationRows').innerHTML = [
+      evalRow('P/E ratio (TTM)', '20 – 40', pe, fmt(pe,'x',1), 20, 40),
+      evalRow('Forward P/E', '20 – 30', fwdPE, fmt(fwdPE,'x',1), 20, 30),
+      evalRow('PEG ratio', '0.5 – 1.5', peg, fmt(peg,'',2), 0.5, 1.5),
+      evalRow('P/B ratio', '0.5 – 1.5', pb, fmt(pb,'x',2), 0.5, 1.5),
+      evalRow('P/S ratio', '1.0 – 5.0', ps, fmt(ps,'x',2), 1.0, 5.0),
+      evalRow('EV / EBITDA', '10 – 20', evEbitda, fmt(evEbitda,'x',1), 10, 20),
+    ].join('');
+
+    document.getElementById('returnRows').innerHTML = [
+      evalRow('Return on equity (ROE)', '12% – 20%+', roe, fmt(roe,'%',1), 12, null),
+      evalRow('Return on assets (ROA)', '5% – 10%+', roa, fmt(roa,'%',1), 5, null),
+    ].join('');
+
+    const isBank = (ov.Industry || '').toLowerCase().includes('bank') ||
+      (ov.Industry || '').toLowerCase().includes('finance') ||
+      (ov.Sector || '').toLowerCase().includes('financial');
+
+    document.getElementById('footnote').textContent = isBank
+      ? 'Note: This is a financial/banking company. EV/EBITDA, P/FCF, and FCF margin are structurally not applicable to banks. ROE and ROA benchmarks also differ for banks — industry average ROA is typically 0.8–1.5%. Treat those as context, not pure failures.'
+      : 'Metrics marked N/A indicate data was not available from Alpha Vantage for this ticker. This does not count as a failure.';
+
+    const total = passCount + failCount;
+    const passRate = total > 0 ? (passCount / total) : 0;
+
+    let riskScore = 50;
+    if (pe && pe > 40) riskScore += 10;
+    if (pe && pe > 60) riskScore += 8;
+    if (pb && pb > 3) riskScore += 8;
+    if (ps && ps > 6) riskScore += 7;
+    if (beta && beta > 2) riskScore += 10;
+    else if (beta && beta > 1.5) riskScore += 5;
+    if (roe && roe < 10) riskScore += 8;
+    if (roa && roa < 2) riskScore += 5;
+    if (revGrowth1yr && revGrowth1yr > 20) riskScore -= 10;
+    if (revGrowth1yr && revGrowth1yr > 35) riskScore -= 6;
+    if (netMargin && netMargin > 10) riskScore -= 8;
+    if (peg && peg < 1.0) riskScore -= 8;
+    if (passRate > 0.6) riskScore -= 6;
+    riskScore = Math.max(5, Math.min(95, Math.round(riskScore)));
+
+    let riskColor = riskScore < 35 ? '#4ade80' : riskScore < 60 ? '#fbbf24' : '#f87171';
+    let riskTag = riskScore < 35 ? 'Low risk' : riskScore < 60 ? 'Moderate risk' : 'High risk';
+
+    document.getElementById('riskNum').textContent = riskScore;
+    document.getElementById('riskNum').style.color = riskColor;
+    document.getElementById('riskLabel').textContent = riskTag;
+    setTimeout(() => {
+      document.getElementById('riskPin').style.left = riskScore + '%';
+    }, 200);
+
+    const isGrowth = passCount >= failCount && (revGrowth1yr === null || revGrowth1yr > 15);
+    const verdictType = isGrowth ? 'b-pass' : 'b-fail';
+    const verdictText = isGrowth ? 'Growth stock' : 'Does not meet growth criteria';
+
+    document.getElementById('verdictBar').innerHTML = `
+      <span class="verdict-pill ${verdictType}">${verdictText}</span>
+      <span class="verdict-text">${ov.Name} — ${ov.Sector || 'Unknown sector'}</span>
+      <span class="score-tally"><span class="pass-count">${passCount} pass</span> &bull; <span class="fail-count">${failCount} fail</span> &bull; ${naCount} N/A</span>
+    `;
+
+    const strengths = [];
+    const concerns = [];
+
+    if (revGrowth1yr && revGrowth1yr > 20) strengths.push(`revenue growing at ${revGrowth1yr.toFixed(1)}% YoY`);
+    if (peg && peg < 1.2) strengths.push(`PEG ratio of ${peg.toFixed(2)} suggests reasonable price-to-growth`);
+    if (netMargin && netMargin > 10) strengths.push(`net margin of ${netMargin.toFixed(1)}% shows real profitability`);
+    if (fwdPE && fwdPE >= 20 && fwdPE <= 30) strengths.push(`forward P/E of ${fwdPE.toFixed(1)}x is within the ideal range`);
+    if (roe && roe >= 12) strengths.push(`ROE of ${roe.toFixed(1)}% meets the efficiency threshold`);
+
+    if (pe && pe > 45) concerns.push(`trailing P/E of ${pe.toFixed(1)}x is elevated — growth must continue to justify it`);
+    if (ps && ps > 6) concerns.push(`P/S of ${ps.toFixed(2)}x means you're paying a premium per dollar of revenue`);
+    if (pb && pb > 3) concerns.push(`P/B of ${pb.toFixed(2)}x reflects a premium over book value`);
+    if (beta && beta > 1.8) concerns.push(`beta of ${beta.toFixed(2)} — this stock moves ${beta.toFixed(1)}x the market`);
+    if (roe && roe < 10) concerns.push(`ROE of ${roe.toFixed(1)}% is below the 12% threshold`);
+    if (roa && roa < 3) concerns.push(`ROA of ${roa.toFixed(1)}% is low — capital efficiency needs improvement`);
+
+    const s1 = strengths.length > 0 ? `<span class="hl">${ov.Symbol}</span> shows ${strengths.slice(0,3).join(', ')}.` : `Data was limited for a full strengths assessment.`;
+    const s2 = concerns.length > 0 ? `Key risks: ${concerns.slice(0,3).join('; ')}.` : `No major red flags from available data.`;
+    const s3 = isGrowth
+      ? `Based on available metrics, <span class="hl">${ov.Symbol} qualifies as a growth stock.</span> The checklist passes more items than it fails. That said, meeting the criteria does not mean the current price is a good entry — always review the most recent earnings report and analyst targets before acting.`
+      : `<span class="hl">${ov.Symbol} does not cleanly meet the growth stock criteria</span> based on available data. It may be a value play, a turnaround, or a mature compounder — but it does not fit the high-growth screener as defined.`;
+
+    document.getElementById('summaryBox').innerHTML = `
+      <div class="s-label">Summary</div>
+      <p>${s1}</p>
+      <p>${s2}</p>
+      <p>${s3}</p>
+    `;
+
+    btn.disabled = false;
+
+  } catch(e) {
+    loading.style.display = 'none';
+    btn.disabled = false;
+    err.textContent = e.message || 'Something went wrong. Check your connection and try again.';
+    err.style.display = 'block';
+  }
+}
+
+document.getElementById('tickerInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runScreen();
+});
+</script>
+</body>
+</html>
